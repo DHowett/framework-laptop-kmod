@@ -32,6 +32,10 @@
 #define FRAMEWORK_LAPTOP_EC_DEVICE_NAME "cros_ec_lpcs.0"
 
 static struct device *ec_device;
+struct framework_data {
+	struct acpi_device *acpi_dev;
+	struct led_classdev kb_led;
+};
 
 #define EC_CMD_CHARGE_LIMIT_CONTROL 0x3E03
 
@@ -95,6 +99,83 @@ static int charge_limit_control(enum ec_chg_limit_control_modes modes, uint8_t m
 	return resp->max_percentage;
 }
 
+// Get the last set keyboard LED brightness
+static enum led_brightness kb_led_get(struct led_classdev *led)
+{
+	struct {
+		struct cros_ec_command msg;
+		union {
+			struct ec_response_pwm_get_keyboard_backlight resp;
+		};
+	} __packed buf;
+
+	struct ec_response_pwm_get_keyboard_backlight *resp = &buf.resp;
+	struct cros_ec_command *msg = &buf.msg;
+	struct cros_ec_device *ec;
+	int ret;
+	if (!ec_device)
+		goto out;
+
+	ec = dev_get_drvdata(ec_device);
+
+	memset(&buf, 0, sizeof(buf));
+	
+	msg->version = 0;
+	msg->command = EC_CMD_PWM_GET_KEYBOARD_BACKLIGHT;
+	msg->insize = sizeof(*resp);
+	msg->outsize = 0;
+
+	ret = cros_ec_cmd_xfer_status(ec, msg);
+	if (ret < 0) {
+		goto out;
+	}
+
+	if (resp->enabled) {
+		return resp->percent;
+	}
+
+out:
+	return 0;
+}
+
+// Set the keyboard LED brightness
+static int kb_led_set(struct led_classdev *led, enum led_brightness value)
+{
+	struct {
+		struct cros_ec_command msg;
+		union {
+			struct ec_params_pwm_set_keyboard_backlight params;
+		};
+	} __packed buf;
+
+	struct ec_params_pwm_set_keyboard_backlight *params = &buf.params;
+	struct cros_ec_command *msg = &buf.msg;
+	struct cros_ec_device *ec;
+	int ret;
+
+	if (!ec_device)
+		return -EIO;
+
+	ec = dev_get_drvdata(ec_device);
+
+	memset(&buf, 0, sizeof(buf));
+	
+	msg->version = 0;
+	msg->command = EC_CMD_PWM_SET_KEYBOARD_BACKLIGHT;
+	msg->insize = 0;
+	msg->outsize = sizeof(*params);
+
+	params->percent = value;
+
+	ret = cros_ec_cmd_xfer_status(ec, msg);
+	if (ret < 0) {
+		return -EIO;
+	}
+
+	return 0;
+}
+
+
 static ssize_t battery_get_threshold(char *buf)
 {
 	int ret;
@@ -146,7 +227,7 @@ static struct attribute *framework_laptop_battery_attrs[] = {
 
 ATTRIBUTE_GROUPS(framework_laptop_battery);
 
-static int framework_laptop_battery_add(struct power_supply *battery)
+static int framework_laptop_battery_add(struct power_supply *battery, struct acpi_battery_hook *hook)
 {
 	// Framework EC only supports 1 battery
 	if (strcmp(battery->desc->name, "BAT1") != 0)
@@ -158,7 +239,7 @@ static int framework_laptop_battery_add(struct power_supply *battery)
 	return 0;
 }
 
-static int framework_laptop_battery_remove(struct power_supply *battery)
+static int framework_laptop_battery_remove(struct power_supply *battery, struct acpi_battery_hook *hook)
 {
 	device_remove_groups(&battery->dev, framework_laptop_battery_groups);
 	return 0;
@@ -169,6 +250,12 @@ static struct acpi_battery_hook framework_laptop_battery_hook = {
 	.remove_battery = framework_laptop_battery_remove,
 	.name = "Framework Laptop Battery Extension",
 };
+
+static const struct acpi_device_id device_ids[] = {
+	{"FRMW0001", 0},
+	{"", 0},
+};
+MODULE_DEVICE_TABLE(acpi, device_ids);
 
 static const struct dmi_system_id framework_laptop_dmi_table[] __initconst = {
 	{
@@ -182,8 +269,9 @@ static const struct dmi_system_id framework_laptop_dmi_table[] __initconst = {
 };
 MODULE_DEVICE_TABLE(dmi, framework_laptop_dmi_table);
 
-static int __init framework_laptop_init(void)
+static int framework_add(struct acpi_device *acpi_dev)
 {
+	struct framework_data *data;
 	int ret = 0;
 
 	if (!dmi_check_system(framework_laptop_dmi_table)) {
@@ -194,6 +282,21 @@ static int __init framework_laptop_init(void)
 	ec_device = bus_find_device_by_name(&platform_bus_type, NULL, FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
 	if (!ec_device)
 		return -EINVAL;
+
+	data = devm_kzalloc(&acpi_dev->dev, sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	acpi_dev->driver_data = data;
+	data->acpi_dev = acpi_dev;
+
+	data->kb_led.name = "framework_acpi::kbd_backlight";
+	data->kb_led.brightness_get = kb_led_get;
+	data->kb_led.brightness_set_blocking = kb_led_set;
+	data->kb_led.max_brightness = 100;
+	ret = devm_led_classdev_register(&acpi_dev->dev, &data->kb_led);
+	if (ret)
+		return ret;
 
 #if 0
 	/* Register the driver */
@@ -216,15 +319,23 @@ static int __init framework_laptop_init(void)
 	return ret;
 }
 
-static void __exit framework_laptop_exit(void)
+static void framework_remove(struct acpi_device *acpi_dev)
 {
 	battery_hook_unregister(&framework_laptop_battery_hook);
 
 	put_device(ec_device);
 }
 
-module_init(framework_laptop_init);
-module_exit(framework_laptop_exit);
+static struct acpi_driver framework_driver = {
+	.name = "Framework ACPI Driver",
+	.class = "laptop",
+	.ids = device_ids,
+	.ops = {
+		.add = framework_add,
+		.remove = framework_remove,
+	},
+};
+module_acpi_driver(framework_driver);
 
 MODULE_DESCRIPTION("Framework Laptop Platform Driver");
 MODULE_AUTHOR("Dustin L. Howett <dustin@howett.net>");

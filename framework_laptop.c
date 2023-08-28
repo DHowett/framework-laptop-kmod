@@ -29,7 +29,7 @@
 #include <acpi/battery.h>
 
 #define DRV_NAME "framework_laptop"
-#define FRAMEWORK_LAPTOP_EC_DEVICE_NAME "cros_ec_lpcs.0"
+#define FRAMEWORK_LAPTOP_EC_DEVICE_NAME "cros-ec-dev"
 
 static struct device *ec_device;
 struct framework_data {
@@ -269,6 +269,13 @@ static const struct dmi_system_id framework_laptop_dmi_table[] __initconst = {
 };
 MODULE_DEVICE_TABLE(dmi, framework_laptop_dmi_table);
 
+static int device_match_print(struct device *dev, const void* foo) {
+	const char* name = dev_name(dev);
+	if (strncmp(name, "cros-ec-dev", 11))
+		return 0;
+	return 1;
+}
+
 static int framework_add(struct acpi_device *acpi_dev)
 {
 	struct framework_data *data;
@@ -279,9 +286,13 @@ static int framework_add(struct acpi_device *acpi_dev)
 		return -ENODEV;
 	}
 
-	ec_device = bus_find_device_by_name(&platform_bus_type, NULL, FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
-	if (!ec_device)
+	ec_device = bus_find_device(&platform_bus_type, NULL, NULL, device_match_print);
+	//ec_device = bus_find_device_by_name(&platform_bus_type, NULL, FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
+	if (!ec_device) {
+		pr_err(DRV_NAME ": failed to find EC %s.\n", FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
 		return -EINVAL;
+	}
+	ec_device = ec_device->parent;
 
 	data = devm_kzalloc(&acpi_dev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)

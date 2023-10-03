@@ -378,7 +378,8 @@ static int __init framework_laptop_init(void)
 	return 0;
 
 fail_device_add:
-	platform_device_put(fwdevice);
+	platform_device_del(fwdevice);
+	fwdevice = NULL;
 
 fail_platform_driver:
 	platform_driver_unregister(&framework_driver);
@@ -390,8 +391,10 @@ fail:
 static void __exit framework_laptop_exit(void)
 {
 	if (fwdevice)
-		platform_device_put(fwdevice);
-	platform_driver_unregister(&framework_driver);
+	{
+		platform_device_unregister(fwdevice);
+		platform_driver_unregister(&framework_driver);
+	}
 }
 
 module_init(framework_laptop_init);

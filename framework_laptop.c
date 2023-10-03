@@ -255,6 +255,7 @@ static struct acpi_battery_hook framework_laptop_battery_hook = {
 
 static const struct acpi_device_id device_ids[] = {
 	{"FRMW0001", 0},
+	{"FRMW0004", 0},
 	{"", 0},
 };
 MODULE_DEVICE_TABLE(acpi, device_ids);

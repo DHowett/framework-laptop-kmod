@@ -31,9 +31,10 @@
 #define DRV_NAME "framework_laptop"
 #define FRAMEWORK_LAPTOP_EC_DEVICE_NAME "cros-ec-dev"
 
+static struct platform_device *fwdevice;
 static struct device *ec_device;
 struct framework_data {
-	struct acpi_device *acpi_dev;
+	struct platform_device *pdev;
 	struct led_classdev kb_led;
 };
 
@@ -279,36 +280,40 @@ static int device_match_print(struct device *dev, const void* foo) {
 	return 1;
 }
 
-static int framework_add(struct acpi_device *acpi_dev)
+static int framework_probe(struct platform_device *pdev)
 {
+	struct device *dev;
 	struct framework_data *data;
 	int ret = 0;
 
+	dev = &pdev->dev;
+
 	if (!dmi_check_system(framework_laptop_dmi_table)) {
-		pr_err(DRV_NAME ": unsupported system.\n");
+		dev_err(dev, DRV_NAME ": unsupported system.\n");
 		return -ENODEV;
 	}
 
 	ec_device = bus_find_device(&platform_bus_type, NULL, NULL, device_match_print);
 	//ec_device = bus_find_device_by_name(&platform_bus_type, NULL, FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
 	if (!ec_device) {
-		pr_err(DRV_NAME ": failed to find EC %s.\n", FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
+		dev_err(dev, DRV_NAME ": failed to find EC %s.\n", FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
 		return -EINVAL;
 	}
 	ec_device = ec_device->parent;
 
-	data = devm_kzalloc(&acpi_dev->dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 
-	acpi_dev->driver_data = data;
-	data->acpi_dev = acpi_dev;
+
+	platform_set_drvdata(pdev, data);
+	data->pdev = pdev;
 
 	data->kb_led.name = "framework_acpi::kbd_backlight";
 	data->kb_led.brightness_get = kb_led_get;
 	data->kb_led.brightness_set_blocking = kb_led_set;
 	data->kb_led.max_brightness = 100;
-	ret = devm_led_classdev_register(&acpi_dev->dev, &data->kb_led);
+	ret = devm_led_classdev_register(&pdev->dev, &data->kb_led);
 	if (ret)
 		return ret;
 
@@ -333,24 +338,66 @@ static int framework_add(struct acpi_device *acpi_dev)
 	return ret;
 }
 
-static void framework_remove(struct acpi_device *acpi_dev)
+static int framework_remove(struct platform_device *pdev)
 {
 	battery_hook_unregister(&framework_laptop_battery_hook);
 
 	put_device(ec_device);
+
+	return 0;
 }
 
-static struct acpi_driver framework_driver = {
-	.name = "Framework ACPI Driver",
-	.class = "laptop",
-	.ids = device_ids,
-	.ops = {
-		.add = framework_add,
-		.remove = framework_remove,
+static struct platform_driver framework_driver = {
+	.driver = {
+		.name = DRV_NAME,
+		.acpi_match_table = device_ids,
 	},
+	.probe = framework_probe,
+	.remove = framework_remove,
 };
-module_acpi_driver(framework_driver);
+//module_platform_driver(framework_driver);
+
+static int __init framework_laptop_init(void)
+{
+	int ret;
+	ret = platform_driver_register(&framework_driver);
+	if (ret)
+		goto fail;
+
+	fwdevice = platform_device_alloc(DRV_NAME, PLATFORM_DEVID_NONE);
+	if (!fwdevice)
+	{
+		ret = -ENOMEM;
+		goto fail_platform_driver;
+	}
+
+	ret = platform_device_add(fwdevice);
+	if (ret)
+		goto fail_device_add;
+
+	return 0;
+
+fail_device_add:
+	platform_device_put(fwdevice);
+
+fail_platform_driver:
+	platform_driver_unregister(&framework_driver);
+
+fail:
+	return ret;
+}
+
+static void __exit framework_laptop_exit(void)
+{
+	if (fwdevice)
+		platform_device_put(fwdevice);
+	platform_driver_unregister(&framework_driver);
+}
+
+module_init(framework_laptop_init);
+module_exit(framework_laptop_exit);
 
 MODULE_DESCRIPTION("Framework Laptop Platform Driver");
 MODULE_AUTHOR("Dustin L. Howett <dustin@howett.net>");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:" DRV_NAME);

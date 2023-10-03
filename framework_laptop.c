@@ -105,11 +105,13 @@ static enum led_brightness kb_led_get(struct led_classdev *led)
 	struct {
 		struct cros_ec_command msg;
 		union {
-			struct ec_response_pwm_get_keyboard_backlight resp;
+			struct ec_params_pwm_get_duty p;
+			struct ec_response_pwm_get_duty resp;
 		};
 	} __packed buf;
 
-	struct ec_response_pwm_get_keyboard_backlight *resp = &buf.resp;
+	struct ec_params_pwm_get_duty *p = &buf.p;
+	struct ec_response_pwm_get_duty *resp = &buf.resp;
 	struct cros_ec_command *msg = &buf.msg;
 	struct cros_ec_device *ec;
 	int ret;
@@ -119,20 +121,20 @@ static enum led_brightness kb_led_get(struct led_classdev *led)
 	ec = dev_get_drvdata(ec_device);
 
 	memset(&buf, 0, sizeof(buf));
+
+	p->pwm_type = EC_PWM_TYPE_KB_LIGHT;
 	
 	msg->version = 0;
-	msg->command = EC_CMD_PWM_GET_KEYBOARD_BACKLIGHT;
+	msg->command = EC_CMD_PWM_GET_DUTY;
 	msg->insize = sizeof(*resp);
-	msg->outsize = 0;
+	msg->outsize = sizeof(*p);
 
 	ret = cros_ec_cmd_xfer_status(ec, msg);
 	if (ret < 0) {
 		goto out;
 	}
 
-	if (resp->enabled) {
-		return resp->percent;
-	}
+	return resp->duty * 100 / EC_PWM_MAX_DUTY;
 
 out:
 	return 0;

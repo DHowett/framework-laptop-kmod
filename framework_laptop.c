@@ -86,8 +86,8 @@ static int charge_limit_control(enum ec_chg_limit_control_modes modes, uint8_t m
 
 	msg->version = 0;
 	msg->command = EC_CMD_CHARGE_LIMIT_CONTROL;
-	msg->insize = sizeof(*resp);
 	msg->outsize = sizeof(*params);
+	msg->insize = sizeof(*resp);
 
 	params->modes = modes;
 	params->max_percentage = max_percentage;
@@ -273,7 +273,7 @@ static const struct dmi_system_id framework_laptop_dmi_table[] __initconst = {
 };
 MODULE_DEVICE_TABLE(dmi, framework_laptop_dmi_table);
 
-static int device_match_print(struct device *dev, const void* foo) {
+static int device_match_cros_ec(struct device *dev, const void* foo) {
 	const char* name = dev_name(dev);
 	if (strncmp(name, "cros-ec-dev", 11))
 		return 0;
@@ -288,13 +288,7 @@ static int framework_probe(struct platform_device *pdev)
 
 	dev = &pdev->dev;
 
-	if (!dmi_check_system(framework_laptop_dmi_table)) {
-		dev_err(dev, DRV_NAME ": unsupported system.\n");
-		return -ENODEV;
-	}
-
-	ec_device = bus_find_device(&platform_bus_type, NULL, NULL, device_match_print);
-	//ec_device = bus_find_device_by_name(&platform_bus_type, NULL, FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
+	ec_device = bus_find_device(&platform_bus_type, NULL, NULL, device_match_cros_ec);
 	if (!ec_device) {
 		dev_err(dev, DRV_NAME ": failed to find EC %s.\n", FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
 		return -EINVAL;
@@ -305,11 +299,10 @@ static int framework_probe(struct platform_device *pdev)
 	if (!data)
 		return -ENOMEM;
 
-
 	platform_set_drvdata(pdev, data);
 	data->pdev = pdev;
 
-	data->kb_led.name = "framework_acpi::kbd_backlight";
+	data->kb_led.name = DRV_NAME "::kbd_backlight";
 	data->kb_led.brightness_get = kb_led_get;
 	data->kb_led.brightness_set_blocking = kb_led_set;
 	data->kb_led.max_brightness = 100;
@@ -355,11 +348,16 @@ static struct platform_driver framework_driver = {
 	.probe = framework_probe,
 	.remove = framework_remove,
 };
-//module_platform_driver(framework_driver);
 
 static int __init framework_laptop_init(void)
 {
 	int ret;
+
+	if (!dmi_check_system(framework_laptop_dmi_table)) {
+		pr_err(DRV_NAME ": unsupported system.\n");
+		return -ENODEV;
+	}
+
 	ret = platform_driver_register(&framework_driver);
 	if (ret)
 		goto fail;
@@ -404,3 +402,4 @@ MODULE_DESCRIPTION("Framework Laptop Platform Driver");
 MODULE_AUTHOR("Dustin L. Howett <dustin@howett.net>");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:" DRV_NAME);
+MODULE_SOFTDEP("pre: cros_ec_lpcs");

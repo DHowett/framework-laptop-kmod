@@ -14,9 +14,15 @@ If you need to target a different kernel, set `KDIR`:
 $ make KDIR=/usr/src/linux-6.5
 ```
 
-## Using
+## Usage
 
 You can install the module systemwide with `make modules_install`, or you can `insmod ./framework_laptop.ko`.
+
+This module requires `cros_ec` and `cros_ec_lpcs` to be loaded and functional.
+
+> **Note**
+> For the Framework Laptop 13 AMD Ryzen 7040 series and the Framework Laptop 16,
+> you will need to apply [this patch](https://lore.kernel.org/chrome-platform/20231005160701.19987-1-dustin@howett.net/) to your kernel sources.
 
 ### Battery Charge Limit
 

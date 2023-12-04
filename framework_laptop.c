@@ -25,6 +25,7 @@
 #include <linux/platform_device.h>
 #include <linux/platform_data/cros_ec_proto.h>
 #include <linux/platform_data/cros_ec_commands.h>
+#include <linux/version.h>
 
 #include <acpi/battery.h>
 
@@ -230,7 +231,11 @@ static struct attribute *framework_laptop_battery_attrs[] = {
 
 ATTRIBUTE_GROUPS(framework_laptop_battery);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
 static int framework_laptop_battery_add(struct power_supply *battery, struct acpi_battery_hook *hook)
+#else
+static int framework_laptop_battery_add(struct power_supply *battery)
+#endif
 {
 	// Framework EC only supports 1 battery
 	if (strcmp(battery->desc->name, "BAT1") != 0)
@@ -242,7 +247,11 @@ static int framework_laptop_battery_add(struct power_supply *battery, struct acp
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
 static int framework_laptop_battery_remove(struct power_supply *battery, struct acpi_battery_hook *hook)
+#else
+static int framework_laptop_battery_remove(struct power_supply *battery)
+#endif
 {
 	device_remove_groups(&battery->dev, framework_laptop_battery_groups);
 	return 0;

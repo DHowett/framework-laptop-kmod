@@ -1,6 +1,19 @@
 A kernel module that exposes the Framework Laptop (13, 16)'s battery charge limit and LEDs to userspace.
 
-## Building
+## Install
+
+### Packages
+
+On Arch Linux, this module is packaged in the Arch User Repository as
+[`framework-laptop-kmod-dkms-git`](https://aur.archlinux.org/packages/framework-laptop-kmod-dkms-git).
+You can install it for all your locally installed kernels with your favorite
+AUR helper:
+
+```console
+$ yay -S framework-laptop-kmod-dkms-git
+```
+
+### Building
 
 By default, this project will try to build a module for your running kernel.
 
@@ -14,9 +27,13 @@ If you need to target a different kernel, set `KDIR`:
 $ make KDIR=/usr/src/linux-6.5
 ```
 
+You can install the module systemwide with `make modules_install`.
+
 ## Usage
 
-You can install the module systemwide with `make modules_install`, or you can `insmod ./framework_laptop.ko`.
+If the module is installed systemwide, you can load it with 
+`modprobe framework_laptop`. If you built it manually, you can also use
+`insmod ./framework_laptop.ko`.
 
 This module requires `cros_ec` and `cros_ec_lpcs` to be loaded and functional.
 

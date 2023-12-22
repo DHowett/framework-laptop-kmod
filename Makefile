@@ -1,9 +1,15 @@
-KDIR ?= /lib/modules/$(shell uname -r)/build
-MDIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+ifneq ($(KERNELRELEASE),)
+# kbuild part of makefile
+obj-m  := framework_laptop.o
 
-.PHONY: all modules modules_install
+else
+# normal makefile
+KDIR ?= /lib/modules/`uname -r`/build
 
-all: modules
+modules:
 
-modules modules_install:
-	make -C $(KDIR) M=$(MDIR) $@
+%:
+	$(MAKE) -C $(KDIR) M=$$PWD $@
+
+endif
+

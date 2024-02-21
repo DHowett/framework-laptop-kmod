@@ -646,10 +646,10 @@ static int framework_remove(struct platform_device *pdev)
 {
 	battery_hook_unregister(&framework_laptop_battery_hook);
 
-	put_device(ec_device);
+	if (hwmon_dev)
+		hwmon_device_unregister(hwmon_dev);
 
-    if (hwmon_dev)
-	    hwmon_device_unregister(hwmon_dev);
+	put_device(ec_device);
 
 	return 0;
 }

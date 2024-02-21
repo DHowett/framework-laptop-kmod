@@ -648,6 +648,9 @@ static int framework_remove(struct platform_device *pdev)
 
 	put_device(ec_device);
 
+    if (hwmon_dev)
+	    hwmon_device_unregister(hwmon_dev);
+
 	return 0;
 }
 

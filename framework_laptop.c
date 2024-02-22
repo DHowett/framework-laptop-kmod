@@ -267,7 +267,7 @@ static ssize_t ec_get_fan_speed(u8 idx, u16 *val)
 
 	struct cros_ec_device *ec = dev_get_drvdata(ec_device);
 
-	u8 offset = EC_MEMMAP_FAN + 2 * idx;
+	const u8 offset = EC_MEMMAP_FAN + 2 * idx;
 
 	return ec->cmd_readmem(ec, offset, sizeof(*val), val);
 }
@@ -280,6 +280,10 @@ static ssize_t fw_fan_speed_show(struct device *dev,
 	u16 val;
 	if (ec_get_fan_speed(sen_attr->index, &val) < 0) {
 		return -EIO;
+	}
+
+	if (val == EC_FAN_SPEED_NOT_PRESENT || val == EC_FAN_SPEED_STALLED) {
+		return sysfs_emit(buf, "%u\n", 0);
 	}
 
 	// Format as string for sysfs
@@ -366,6 +370,36 @@ static ssize_t fw_fan_target_show(struct device *dev,
 
 	// Format as string for sysfs
 	return sysfs_emit(buf, "%u\n", val);
+}
+
+// --- fanN_fault ---
+static ssize_t fw_fan_fault_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
+
+	u16 val;
+	if (ec_get_fan_speed(sen_attr->index, &val) < 0) {
+		return -EIO;
+	}
+
+	// Format as string for sysfs
+	return sysfs_emit(buf, "%u\n", val == EC_FAN_SPEED_NOT_PRESENT);
+}
+
+// --- fanN_alarm ---
+static ssize_t fw_fan_alarm_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
+
+	u16 val;
+	if (ec_get_fan_speed(sen_attr->index, &val) < 0) {
+		return -EIO;
+	}
+
+	// Format as string for sysfs
+	return sysfs_emit(buf, "%u\n", val == EC_FAN_SPEED_STALLED);
 }
 
 // --- pwmN_enable ---
@@ -463,11 +497,37 @@ static ssize_t fw_pwm_max_show(struct device *dev,
 	return sysfs_emit(buf, "%i\n", 100);
 }
 
-#define FW_ATTRS_PER_FAN 6
+static ssize_t ec_count_fans(size_t *val)
+{
+	if (!ec_device)
+		return -ENODEV;
+
+	struct cros_ec_device *ec = dev_get_drvdata(ec_device);
+
+	u16 fans[EC_FAN_SPEED_ENTRIES];
+
+	int ret = ec->cmd_readmem(ec, EC_MEMMAP_FAN, sizeof(fans), fans);
+	if (ret < 0)
+		return -EIO;
+
+	for (size_t i = 0; i < EC_FAN_SPEED_ENTRIES; i++) {
+		if (fans[i] == EC_FAN_SPEED_NOT_PRESENT) {
+			*val = i;
+			return 0;
+		}
+	}
+
+	*val = EC_FAN_SPEED_ENTRIES;
+	return 0;
+}
+
+#define FW_ATTRS_PER_FAN 8
 
 // clang-format off
 static SENSOR_DEVICE_ATTR_RO(fan1_input, fw_fan_speed, 0); // Fan Reading
 static SENSOR_DEVICE_ATTR_RW(fan1_target, fw_fan_target, 0); // Target RPM (RW on fan 0 only)
+static SENSOR_DEVICE_ATTR_RO(fan1_fault, fw_fan_fault, 0); // Fan Fault
+static SENSOR_DEVICE_ATTR_RO(fan1_alarm, fw_fan_alarm, 0); // Fan Alarm
 static SENSOR_DEVICE_ATTR_WO(pwm1_enable, fw_pwm_enable, 0); // Set Fan Control Mode
 static SENSOR_DEVICE_ATTR_WO(pwm1, fw_pwm, 0); // Set Fan Speed
 static SENSOR_DEVICE_ATTR_RO(pwm1_min, fw_pwm_min, 0); // Min Fan Speed
@@ -475,6 +535,8 @@ static SENSOR_DEVICE_ATTR_RO(pwm1_max, fw_pwm_max, 0); // Max Fan Speed
 
 static SENSOR_DEVICE_ATTR_RO(fan2_input, fw_fan_speed, 1);
 static SENSOR_DEVICE_ATTR_WO(fan2_target, fw_fan_target, 1);
+static SENSOR_DEVICE_ATTR_RO(fan2_fault, fw_fan_fault, 1);
+static SENSOR_DEVICE_ATTR_RO(fan2_alarm, fw_fan_alarm, 1);
 static SENSOR_DEVICE_ATTR_WO(pwm2_enable, fw_pwm_enable, 1);
 static SENSOR_DEVICE_ATTR_WO(pwm2, fw_pwm, 1);
 static SENSOR_DEVICE_ATTR_RO(pwm2_min, fw_pwm_min, 1);
@@ -482,6 +544,8 @@ static SENSOR_DEVICE_ATTR_RO(pwm2_max, fw_pwm_max, 1);
 
 static SENSOR_DEVICE_ATTR_RO(fan3_input, fw_fan_speed, 2);
 static SENSOR_DEVICE_ATTR_WO(fan3_target, fw_fan_target, 2);
+static SENSOR_DEVICE_ATTR_RO(fan3_fault, fw_fan_fault, 2);
+static SENSOR_DEVICE_ATTR_RO(fan3_alarm, fw_fan_alarm, 2);
 static SENSOR_DEVICE_ATTR_WO(pwm3_enable, fw_pwm_enable, 2);
 static SENSOR_DEVICE_ATTR_WO(pwm3, fw_pwm, 2);
 static SENSOR_DEVICE_ATTR_RO(pwm3_min, fw_pwm_min, 2);
@@ -489,6 +553,8 @@ static SENSOR_DEVICE_ATTR_RO(pwm3_max, fw_pwm_max, 2);
 
 static SENSOR_DEVICE_ATTR_RO(fan4_input, fw_fan_speed, 3);
 static SENSOR_DEVICE_ATTR_WO(fan4_target, fw_fan_target, 3);
+static SENSOR_DEVICE_ATTR_RO(fan4_fault, fw_fan_fault, 3);
+static SENSOR_DEVICE_ATTR_RO(fan4_alarm, fw_fan_alarm, 3);
 static SENSOR_DEVICE_ATTR_WO(pwm4_enable, fw_pwm_enable, 3);
 static SENSOR_DEVICE_ATTR_WO(pwm4, fw_pwm, 3);
 static SENSOR_DEVICE_ATTR_RO(pwm4_min, fw_pwm_min, 3);
@@ -499,6 +565,8 @@ static struct attribute
 	*fw_hwmon_attrs[(EC_FAN_SPEED_ENTRIES * FW_ATTRS_PER_FAN) + 1] = {
 		&sensor_dev_attr_fan1_input.dev_attr.attr,
 		&sensor_dev_attr_fan1_target.dev_attr.attr,
+		&sensor_dev_attr_fan1_fault.dev_attr.attr,
+		&sensor_dev_attr_fan1_alarm.dev_attr.attr,
 		&sensor_dev_attr_pwm1_enable.dev_attr.attr,
 		&sensor_dev_attr_pwm1.dev_attr.attr,
 		&sensor_dev_attr_pwm1_min.dev_attr.attr,
@@ -506,6 +574,8 @@ static struct attribute
 
 		&sensor_dev_attr_fan2_input.dev_attr.attr,
 		&sensor_dev_attr_fan2_target.dev_attr.attr,
+		&sensor_dev_attr_fan2_fault.dev_attr.attr,
+		&sensor_dev_attr_fan2_alarm.dev_attr.attr,
 		&sensor_dev_attr_pwm2_enable.dev_attr.attr,
 		&sensor_dev_attr_pwm2.dev_attr.attr,
 		&sensor_dev_attr_pwm2_min.dev_attr.attr,
@@ -513,6 +583,8 @@ static struct attribute
 
 		&sensor_dev_attr_fan3_input.dev_attr.attr,
 		&sensor_dev_attr_fan3_target.dev_attr.attr,
+		&sensor_dev_attr_fan3_fault.dev_attr.attr,
+		&sensor_dev_attr_fan3_alarm.dev_attr.attr,
 		&sensor_dev_attr_pwm3_enable.dev_attr.attr,
 		&sensor_dev_attr_pwm3.dev_attr.attr,
 		&sensor_dev_attr_pwm3_min.dev_attr.attr,
@@ -520,6 +592,8 @@ static struct attribute
 
 		&sensor_dev_attr_fan4_input.dev_attr.attr,
 		&sensor_dev_attr_fan4_target.dev_attr.attr,
+		&sensor_dev_attr_fan4_fault.dev_attr.attr,
+		&sensor_dev_attr_fan4_alarm.dev_attr.attr,
 		&sensor_dev_attr_pwm4_enable.dev_attr.attr,
 		&sensor_dev_attr_pwm4.dev_attr.attr,
 		&sensor_dev_attr_pwm4_min.dev_attr.attr,
@@ -617,17 +691,13 @@ static int framework_probe(struct platform_device *pdev)
 	if (ec->cmd_readmem) {
 
         // Count the number of fans
-        for (size_t i = 0; i < EC_FAN_SPEED_ENTRIES; i++) {
-            s16 val;
-            ec_get_fan_speed(i, &val);
-            // EC returns -1 when the fan is not present
-            if (val == -1) {
-                // Remove the fan from the list
-                fw_hwmon_attrs[i * FW_ATTRS_PER_FAN] = NULL;
-                // the NULL terminates, so we can stop here
-                break;
-            }
+        size_t fan_count;
+        if (ec_count_fans(&fan_count) < 0) {
+            printk(KERN_WARNING DRV_NAME ": failed to count fans.\n");
+            return -EINVAL;
         }
+        // NULL terminates the list
+        fw_hwmon_attrs[fan_count * FW_ATTRS_PER_FAN] = NULL;
 
         hwmon_dev = hwmon_device_register_with_groups(dev, DRV_NAME, NULL, fw_hwmon_groups);
         if (IS_ERR(hwmon_dev))

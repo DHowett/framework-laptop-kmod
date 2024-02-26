@@ -526,8 +526,8 @@ static ssize_t ec_count_fans(size_t *val)
 // clang-format off
 static SENSOR_DEVICE_ATTR_RO(fan1_input, fw_fan_speed, 0); // Fan Reading
 static SENSOR_DEVICE_ATTR_RW(fan1_target, fw_fan_target, 0); // Target RPM (RW on fan 0 only)
-static SENSOR_DEVICE_ATTR_RO(fan1_fault, fw_fan_fault, 0); // Fan Fault
-static SENSOR_DEVICE_ATTR_RO(fan1_alarm, fw_fan_alarm, 0); // Fan Alarm
+static SENSOR_DEVICE_ATTR_RO(fan1_fault, fw_fan_fault, 0); // Fan Not Present
+static SENSOR_DEVICE_ATTR_RO(fan1_alarm, fw_fan_alarm, 0); // Fan Stalled
 static SENSOR_DEVICE_ATTR_WO(pwm1_enable, fw_pwm_enable, 0); // Set Fan Control Mode
 static SENSOR_DEVICE_ATTR_WO(pwm1, fw_pwm, 0); // Set Fan Speed
 static SENSOR_DEVICE_ATTR_RO(pwm1_min, fw_pwm_min, 0); // Min Fan Speed
@@ -696,7 +696,7 @@ static int framework_probe(struct platform_device *pdev)
             printk(KERN_WARNING DRV_NAME ": failed to count fans.\n");
             return -EINVAL;
         }
-        // NULL terminates the list
+        // NULL terminates the list after the last detected fan
         fw_hwmon_attrs[fan_count * FW_ATTRS_PER_FAN] = NULL;
 
         hwmon_dev = hwmon_device_register_with_groups(dev, DRV_NAME, NULL, fw_hwmon_groups);

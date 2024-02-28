@@ -273,7 +273,7 @@ static ssize_t ec_get_fan_speed(u8 idx, u16 *val)
 }
 
 static ssize_t fw_fan_speed_show(struct device *dev,
-								 struct device_attribute *attr, char *buf)
+				 struct device_attribute *attr, char *buf)
 {
 	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
 
@@ -305,7 +305,7 @@ static ssize_t ec_set_target_rpm(u8 idx, u32 *val)
 	};
 
 	ret = cros_ec_cmd(ec, 1, EC_CMD_PWM_SET_FAN_TARGET_RPM, &params,
-					  sizeof(params), NULL, 0);
+			  sizeof(params), NULL, 0);
 	if (ret < 0)
 		return -EIO;
 
@@ -325,7 +325,7 @@ static ssize_t ec_get_target_rpm(u8 idx, u32 *val)
 	// index isn't supported, it should only return fan 0's target
 
 	ret = cros_ec_cmd(ec, 0, EC_CMD_PWM_GET_FAN_TARGET_RPM, NULL, 0, &resp,
-					  sizeof(resp));
+			  sizeof(resp));
 	if (ret < 0)
 		return -EIO;
 
@@ -335,8 +335,8 @@ static ssize_t ec_get_target_rpm(u8 idx, u32 *val)
 }
 
 static ssize_t fw_fan_target_store(struct device *dev,
-								   struct device_attribute *attr,
-								   const char *buf, size_t count)
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
 {
 	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
 	u32 val;
@@ -354,7 +354,7 @@ static ssize_t fw_fan_target_store(struct device *dev,
 }
 
 static ssize_t fw_fan_target_show(struct device *dev,
-								  struct device_attribute *attr, char *buf)
+				  struct device_attribute *attr, char *buf)
 {
 	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
 
@@ -374,7 +374,7 @@ static ssize_t fw_fan_target_show(struct device *dev,
 
 // --- fanN_fault ---
 static ssize_t fw_fan_fault_show(struct device *dev,
-								 struct device_attribute *attr, char *buf)
+				 struct device_attribute *attr, char *buf)
 {
 	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
 
@@ -389,7 +389,7 @@ static ssize_t fw_fan_fault_show(struct device *dev,
 
 // --- fanN_alarm ---
 static ssize_t fw_fan_alarm_show(struct device *dev,
-								 struct device_attribute *attr, char *buf)
+				 struct device_attribute *attr, char *buf)
 {
 	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
 
@@ -416,7 +416,7 @@ static ssize_t ec_set_auto_fan_ctrl(u8 idx)
 	};
 
 	ret = cros_ec_cmd(ec, 1, EC_CMD_THERMAL_AUTO_FAN_CTRL, &params,
-					  sizeof(params), NULL, 0);
+			  sizeof(params), NULL, 0);
 	if (ret < 0)
 		return -EIO;
 
@@ -424,8 +424,8 @@ static ssize_t ec_set_auto_fan_ctrl(u8 idx)
 }
 
 static ssize_t fw_pwm_enable_store(struct device *dev,
-								   struct device_attribute *attr,
-								   const char *buf, size_t count)
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
 {
 	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
 
@@ -459,8 +459,8 @@ static ssize_t ec_set_fan_duty(u8 idx, u32 *val)
 		.fan_idx = idx,
 	};
 
-	ret = cros_ec_cmd(ec, 1, EC_CMD_PWM_SET_FAN_DUTY, &params, sizeof(params),
-					  NULL, 0);
+	ret = cros_ec_cmd(ec, 1, EC_CMD_PWM_SET_FAN_DUTY, &params,
+			  sizeof(params), NULL, 0);
 	if (ret < 0)
 		return -EIO;
 
@@ -468,7 +468,7 @@ static ssize_t ec_set_fan_duty(u8 idx, u32 *val)
 }
 
 static ssize_t fw_pwm_store(struct device *dev, struct device_attribute *attr,
-							const char *buf, size_t count)
+			    const char *buf, size_t count)
 {
 	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
 	u32 val;
@@ -486,13 +486,13 @@ static ssize_t fw_pwm_store(struct device *dev, struct device_attribute *attr,
 }
 
 static ssize_t fw_pwm_min_show(struct device *dev,
-							   struct device_attribute *attr, char *buf)
+			       struct device_attribute *attr, char *buf)
 {
 	return sysfs_emit(buf, "%i\n", 0);
 }
 
 static ssize_t fw_pwm_max_show(struct device *dev,
-							   struct device_attribute *attr, char *buf)
+			       struct device_attribute *attr, char *buf)
 {
 	return sysfs_emit(buf, "%i\n", 100);
 }
@@ -607,7 +607,7 @@ static const struct attribute_group fw_hwmon_group = {
 };
 
 static const struct attribute_group *fw_hwmon_groups[] = { &fw_hwmon_group,
-														   NULL };
+							   NULL };
 
 static struct acpi_battery_hook framework_laptop_battery_hook = {
 	.add_battery = framework_laptop_battery_add,
@@ -689,22 +689,24 @@ static int framework_probe(struct platform_device *pdev)
 
 	struct cros_ec_device *ec = dev_get_drvdata(ec_device);
 	if (ec->cmd_readmem) {
-
 		// Count the number of fans
 		size_t fan_count;
 		if (ec_count_fans(&fan_count) < 0) {
-			printk(KERN_WARNING DRV_NAME ": failed to count fans.\n");
+			printk(KERN_WARNING DRV_NAME
+			       ": failed to count fans.\n");
 			return -EINVAL;
 		}
 		// NULL terminates the list after the last detected fan
 		fw_hwmon_attrs[fan_count * FW_ATTRS_PER_FAN] = NULL;
 
-		data->hwmon_dev = hwmon_device_register_with_groups(dev, DRV_NAME, NULL, fw_hwmon_groups);
+		data->hwmon_dev = hwmon_device_register_with_groups(
+			dev, DRV_NAME, NULL, fw_hwmon_groups);
 		if (IS_ERR(data->hwmon_dev))
 			return PTR_ERR(data->hwmon_dev);
 
 	} else {
-		dev_err(dev, DRV_NAME ": fan readings could not be enabled for this EC %s.\n", FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
+		dev_err(dev, DRV_NAME ": fan readings could not be enabled for this EC %s.\n",
+		FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
 	}
 
 	battery_hook_register(&framework_laptop_battery_hook);

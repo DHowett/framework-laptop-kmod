@@ -34,10 +34,10 @@
 
 static struct platform_device *fwdevice;
 static struct device *ec_device;
-static struct device *hwmon_dev;
 struct framework_data {
 	struct platform_device *pdev;
 	struct led_classdev kb_led;
+	struct device *hwmon_dev;
 };
 
 #define EC_CMD_CHARGE_LIMIT_CONTROL 0x3E03
@@ -699,9 +699,9 @@ static int framework_probe(struct platform_device *pdev)
 		// NULL terminates the list after the last detected fan
 		fw_hwmon_attrs[fan_count * FW_ATTRS_PER_FAN] = NULL;
 
-		hwmon_dev = hwmon_device_register_with_groups(dev, DRV_NAME, NULL, fw_hwmon_groups);
-		if (IS_ERR(hwmon_dev))
-			return PTR_ERR(hwmon_dev);
+		data->hwmon_dev = hwmon_device_register_with_groups(dev, DRV_NAME, NULL, fw_hwmon_groups);
+		if (IS_ERR(data->hwmon_dev))
+			return PTR_ERR(data->hwmon_dev);
 
 	} else {
 		dev_err(dev, DRV_NAME ": fan readings could not be enabled for this EC %s.\n", FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
@@ -714,10 +714,23 @@ static int framework_probe(struct platform_device *pdev)
 
 static int framework_remove(struct platform_device *pdev)
 {
+	struct device *dev;
+	struct framework_data *data;
+
+	dev = &pdev->dev;
+
+	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	platform_set_drvdata(pdev, data);
+	data->pdev = pdev;
+
 	battery_hook_unregister(&framework_laptop_battery_hook);
 
-	if (hwmon_dev)
-		hwmon_device_unregister(hwmon_dev);
+	// Make sure it's not null before we try to unregister it
+	if (data->hwmon_dev)
+		hwmon_device_unregister(data->hwmon_dev);
 
 	put_device(ec_device);
 

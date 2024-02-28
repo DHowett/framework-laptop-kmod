@@ -692,8 +692,7 @@ static int framework_probe(struct platform_device *pdev)
 		// Count the number of fans
 		size_t fan_count;
 		if (ec_count_fans(&fan_count) < 0) {
-			printk(KERN_WARNING DRV_NAME
-			       ": failed to count fans.\n");
+			dev_err(dev, DRV_NAME ": failed to count fans.\n");
 			return -EINVAL;
 		}
 		// NULL terminates the list after the last detected fan

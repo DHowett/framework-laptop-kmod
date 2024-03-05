@@ -715,22 +715,14 @@ static int framework_probe(struct platform_device *pdev)
 
 static int framework_remove(struct platform_device *pdev)
 {
-	struct device *dev;
 	struct framework_data *data;
 
-	dev = &pdev->dev;
-
-	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
-	if (!data)
-		return -ENOMEM;
-
-	platform_set_drvdata(pdev, data);
-	data->pdev = pdev;
+	data = (struct framework_data *)platform_get_drvdata(pdev);
 
 	battery_hook_unregister(&framework_laptop_battery_hook);
 
 	// Make sure it's not null before we try to unregister it
-	if (data->hwmon_dev)
+	if (data && data->hwmon_dev)
 		hwmon_device_unregister(data->hwmon_dev);
 
 	put_device(ec_device);

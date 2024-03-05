@@ -49,3 +49,19 @@ This module requires `cros_ec` and `cros_ec_lpcs` to be loaded and functional.
 ### LEDs
 
 - `/sys/class/leds/framework_laptop::kbd_backlight`
+
+### Fan Control
+
+This driver supports up to 4 fans, and creates a HWMON interface with the name `framework_laptop`.
+
+- `fan[1-4]_input` - Read fan speed in RPM (read-only)
+- `fan[1-4]_target` - Set target fan speed in RPM
+  - read-write on the first fan, write-only on the others
+- `fan[1-4]_fault` - Fan removed indicator (read-only)
+- `fan[1-4]_alarm` - Fan stall indicator (read-only)
+- `pwm[1-4]` - Fan speed control in percent 0-100 (write-only)
+- `pwm[1-4]_enable` - Enable automatic fan control (write-only)
+  - Currently you can write anything to enable, but I recommend writing `2` in case the driver is updated to support disabling automatic fan control.
+  - Writing to the other interfaces will disable automatic fan control.
+- `pwm[1-4]_min` - returns 0 (read-only)
+- `pwm[1-4]_max` - returns 100 (read-only)

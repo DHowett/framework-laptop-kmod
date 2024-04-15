@@ -523,6 +523,7 @@ static ssize_t ec_count_fans(size_t *val)
 
 #define FW_ATTRS_PER_FAN 8
 
+// --- hwmon sysfs attributes ---
 // clang-format off
 static SENSOR_DEVICE_ATTR_RO(fan1_input, fw_fan_speed, 0); // Fan Reading
 static SENSOR_DEVICE_ATTR_RW(fan1_target, fw_fan_target, 0); // Target RPM (RW on fan 0 only)
@@ -532,6 +533,7 @@ static SENSOR_DEVICE_ATTR_WO(pwm1_enable, fw_pwm_enable, 0); // Set Fan Control 
 static SENSOR_DEVICE_ATTR_WO(pwm1, fw_pwm, 0); // Set Fan Speed
 static SENSOR_DEVICE_ATTR_RO(pwm1_min, fw_pwm_min, 0); // Min Fan Speed
 static SENSOR_DEVICE_ATTR_RO(pwm1_max, fw_pwm_max, 0); // Max Fan Speed
+// clang-format on
 
 static SENSOR_DEVICE_ATTR_RO(fan2_input, fw_fan_speed, 1);
 static SENSOR_DEVICE_ATTR_WO(fan2_target, fw_fan_target, 1);
@@ -559,7 +561,6 @@ static SENSOR_DEVICE_ATTR_WO(pwm4_enable, fw_pwm_enable, 3);
 static SENSOR_DEVICE_ATTR_WO(pwm4, fw_pwm, 3);
 static SENSOR_DEVICE_ATTR_RO(pwm4_min, fw_pwm_min, 3);
 static SENSOR_DEVICE_ATTR_RO(pwm4_max, fw_pwm_max, 3);
-// clang-format on
 
 static struct attribute
 	*fw_hwmon_attrs[(EC_FAN_SPEED_ENTRIES * FW_ATTRS_PER_FAN) + 1] = {
@@ -602,12 +603,7 @@ static struct attribute
 		NULL,
 	};
 
-static const struct attribute_group fw_hwmon_group = {
-	.attrs = fw_hwmon_attrs,
-};
-
-static const struct attribute_group *fw_hwmon_groups[] = { &fw_hwmon_group,
-							   NULL };
+ATTRIBUTE_GROUPS(fw_hwmon);
 
 static struct acpi_battery_hook framework_laptop_battery_hook = {
 	.add_battery = framework_laptop_battery_add,

@@ -65,6 +65,13 @@ struct ec_response_chg_limit_control {
 	uint8_t min_percentage;
 } __ec_align1;
 
+#define EC_CMD_PRIVACY_SWITCHES 0x3E14
+
+struct ec_response_privacy_switches {
+	uint8_t microphone;
+	uint8_t camera;
+} __ec_align1;
+
 static int charge_limit_control(enum ec_chg_limit_control_modes modes, uint8_t max_percentage) {
 	struct {
 		struct cros_ec_command msg;
@@ -521,6 +528,29 @@ static ssize_t ec_count_fans(size_t *val)
 	return 0;
 }
 
+// --- framework_privacy ---
+static ssize_t framework_privacy_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	int ret;
+	if (!ec_device)
+		return -ENODEV;
+
+	struct cros_ec_device *ec = dev_get_drvdata(ec_device);
+
+	struct ec_response_privacy_switches resp;
+
+	ret = cros_ec_cmd(ec, 0, EC_CMD_PRIVACY_SWITCHES, NULL, 0, &resp,
+			  sizeof(resp));
+	if (ret < 0)
+		return -EIO;
+
+	// Output following dell-privacy's format
+	return sysfs_emit(buf, "[Microphone] [%s]\n[Camera] [%s]\n",
+			  resp.microphone ? "unmuted" : "muted",
+			  resp.camera ? "unmuted" : "muted");
+}
+
 #define FW_ATTRS_PER_FAN 8
 
 // --- hwmon sysfs attributes ---
@@ -605,6 +635,17 @@ static struct attribute
 
 ATTRIBUTE_GROUPS(fw_hwmon);
 
+// --- generic sysfs attributes ---
+static DEVICE_ATTR_RO(framework_privacy);
+
+static struct attribute *framework_laptop_attrs[] = {
+	&dev_attr_framework_privacy.attr,
+	NULL,
+};
+
+ATTRIBUTE_GROUPS(framework_laptop);
+
+// --- platform driver ---
 static struct acpi_battery_hook framework_laptop_battery_hook = {
 	.add_battery = framework_laptop_battery_add,
 	.remove_battery = framework_laptop_battery_remove,
@@ -730,6 +771,7 @@ static struct platform_driver framework_driver = {
 	.driver = {
 		.name = DRV_NAME,
 		.acpi_match_table = device_ids,
+		.dev_groups = framework_laptop_groups,
 	},
 	.probe = framework_probe,
 	.remove = framework_remove,

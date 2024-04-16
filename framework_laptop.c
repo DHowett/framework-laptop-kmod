@@ -65,9 +65,9 @@ struct ec_response_chg_limit_control {
 	uint8_t min_percentage;
 } __ec_align1;
 
-#define EC_CMD_PRIVACY_SWITCHES 0x3E14
+#define EC_CMD_PRIVACY_SWITCHES_CHECK_MODE 0x3E14
 
-struct ec_response_privacy_switches {
+struct ec_response_privacy_switches_check {
 	uint8_t microphone;
 	uint8_t camera;
 } __ec_align1;
@@ -538,10 +538,10 @@ static ssize_t framework_privacy_show(struct device *dev,
 
 	struct cros_ec_device *ec = dev_get_drvdata(ec_device);
 
-	struct ec_response_privacy_switches resp;
+	struct ec_response_privacy_switches_check resp;
 
-	ret = cros_ec_cmd(ec, 0, EC_CMD_PRIVACY_SWITCHES, NULL, 0, &resp,
-			  sizeof(resp));
+	ret = cros_ec_cmd(ec, 0, EC_CMD_PRIVACY_SWITCHES_CHECK_MODE, NULL, 0,
+			  &resp, sizeof(resp));
 	if (ret < 0)
 		return -EIO;
 

@@ -61,7 +61,12 @@ This driver supports up to 4 fans, and creates a HWMON interface with the name `
 - `fan[1-4]_alarm` - Fan stall indicator (read-only)
 - `pwm[1-4]` - Fan speed control in percent 0-100 (write-only)
 - `pwm[1-4]_enable` - Enable automatic fan control (write-only)
-  - Currently you can write anything to enable, but I recommend writing `2` in case the driver is updated to support disabling automatic fan control.
+  - Currently you can write anything to enable, but writing `2` is recommended in case the driver is updated to support disabling automatic fan control.
   - Writing to the other interfaces will disable automatic fan control.
 - `pwm[1-4]_min` - returns 0 (read-only)
 - `pwm[1-4]_max` - returns 100 (read-only)
+
+### Privacy Switches
+
+This driver exposes the privacy switches as a custom SysFS interface under `/sys/devices/platform/framework_laptop/framework_privacy`.
+It follows the [existing format of the `dell-privacy` driver](https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-platform-dell-privacy-wmi).

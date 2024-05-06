@@ -65,6 +65,13 @@ struct ec_response_chg_limit_control {
 	uint8_t min_percentage;
 } __ec_align1;
 
+#define EC_CMD_PRIVACY_SWITCHES_CHECK_MODE 0x3E14
+
+struct ec_response_privacy_switches_check {
+	uint8_t microphone;
+	uint8_t camera;
+} __ec_align1;
+
 static int charge_limit_control(enum ec_chg_limit_control_modes modes, uint8_t max_percentage) {
 	struct {
 		struct cros_ec_command msg;
@@ -521,8 +528,32 @@ static ssize_t ec_count_fans(size_t *val)
 	return 0;
 }
 
+// --- framework_privacy ---
+static ssize_t framework_privacy_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	int ret;
+	if (!ec_device)
+		return -ENODEV;
+
+	struct cros_ec_device *ec = dev_get_drvdata(ec_device);
+
+	struct ec_response_privacy_switches_check resp;
+
+	ret = cros_ec_cmd(ec, 0, EC_CMD_PRIVACY_SWITCHES_CHECK_MODE, NULL, 0,
+			  &resp, sizeof(resp));
+	if (ret < 0)
+		return -EIO;
+
+	// Output following dell-privacy's format
+	return sysfs_emit(buf, "[Microphone] [%s]\n[Camera] [%s]\n",
+			  resp.microphone ? "unmuted" : "muted",
+			  resp.camera ? "unmuted" : "muted");
+}
+
 #define FW_ATTRS_PER_FAN 8
 
+// --- hwmon sysfs attributes ---
 // clang-format off
 static SENSOR_DEVICE_ATTR_RO(fan1_input, fw_fan_speed, 0); // Fan Reading
 static SENSOR_DEVICE_ATTR_RW(fan1_target, fw_fan_target, 0); // Target RPM (RW on fan 0 only)
@@ -532,6 +563,7 @@ static SENSOR_DEVICE_ATTR_WO(pwm1_enable, fw_pwm_enable, 0); // Set Fan Control 
 static SENSOR_DEVICE_ATTR_WO(pwm1, fw_pwm, 0); // Set Fan Speed
 static SENSOR_DEVICE_ATTR_RO(pwm1_min, fw_pwm_min, 0); // Min Fan Speed
 static SENSOR_DEVICE_ATTR_RO(pwm1_max, fw_pwm_max, 0); // Max Fan Speed
+// clang-format on
 
 static SENSOR_DEVICE_ATTR_RO(fan2_input, fw_fan_speed, 1);
 static SENSOR_DEVICE_ATTR_WO(fan2_target, fw_fan_target, 1);
@@ -559,7 +591,6 @@ static SENSOR_DEVICE_ATTR_WO(pwm4_enable, fw_pwm_enable, 3);
 static SENSOR_DEVICE_ATTR_WO(pwm4, fw_pwm, 3);
 static SENSOR_DEVICE_ATTR_RO(pwm4_min, fw_pwm_min, 3);
 static SENSOR_DEVICE_ATTR_RO(pwm4_max, fw_pwm_max, 3);
-// clang-format on
 
 static struct attribute
 	*fw_hwmon_attrs[(EC_FAN_SPEED_ENTRIES * FW_ATTRS_PER_FAN) + 1] = {
@@ -602,13 +633,19 @@ static struct attribute
 		NULL,
 	};
 
-static const struct attribute_group fw_hwmon_group = {
-	.attrs = fw_hwmon_attrs,
+ATTRIBUTE_GROUPS(fw_hwmon);
+
+// --- generic sysfs attributes ---
+static DEVICE_ATTR_RO(framework_privacy);
+
+static struct attribute *framework_laptop_attrs[] = {
+	&dev_attr_framework_privacy.attr,
+	NULL,
 };
 
-static const struct attribute_group *fw_hwmon_groups[] = { &fw_hwmon_group,
-							   NULL };
+ATTRIBUTE_GROUPS(framework_laptop);
 
+// --- platform driver ---
 static struct acpi_battery_hook framework_laptop_battery_hook = {
 	.add_battery = framework_laptop_battery_add,
 	.remove_battery = framework_laptop_battery_remove,
@@ -734,6 +771,7 @@ static struct platform_driver framework_driver = {
 	.driver = {
 		.name = DRV_NAME,
 		.acpi_match_table = device_ids,
+		.dev_groups = framework_laptop_groups,
 	},
 	.probe = framework_probe,
 	.remove = framework_remove,

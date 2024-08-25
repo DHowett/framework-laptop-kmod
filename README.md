@@ -37,9 +37,9 @@ If the module is installed systemwide, you can load it with
 
 This module requires `cros_ec` and `cros_ec_lpcs` to be loaded and functional.
 
-> **Note**
+> [!NOTE]
 > For the Framework Laptop 13 AMD Ryzen 7040 series and the Framework Laptop 16,
-> you will need to apply [this patch series](https://lore.kernel.org/chrome-platform/20231005160701.19987-1-dustin@howett.net/) to your kernel sources.
+> you will either need to apply [this patch series](https://lore.kernel.org/chrome-platform/20231005160701.19987-1-dustin@howett.net/) to your kernel sources, or run kernel version 6.10 or higher.
 
 ### Battery Charge Limit
 

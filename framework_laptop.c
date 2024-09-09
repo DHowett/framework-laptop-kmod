@@ -750,7 +750,11 @@ static int framework_probe(struct platform_device *pdev)
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+static void framework_remove(struct platform_device *pdev)
+#else
 static int framework_remove(struct platform_device *pdev)
+#endif
 {
 	struct framework_data *data;
 
@@ -764,7 +768,11 @@ static int framework_remove(struct platform_device *pdev)
 
 	put_device(ec_device);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+	return;
+#else
 	return 0;
+#endif
 }
 
 static struct platform_driver framework_driver = {

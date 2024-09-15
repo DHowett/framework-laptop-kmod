@@ -12,6 +12,13 @@ AUR helper:
 ```console
 $ yay -S framework-laptop-kmod-dkms-git
 ```
+On Gentoo Linux, this module is packaged in the official Gentoo main repository as
+[`framework-laptop-kmod`](https://packages.gentoo.org/packages/app-laptop/framework-laptop-kmod).
+You can install it for your current kernel via:
+
+```console
+$ emerge --ask framework-laptop-kmod
+```
 
 ### Building
 
